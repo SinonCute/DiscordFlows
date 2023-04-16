@@ -1,14 +1,57 @@
 package live.karyl;
 
-import live.karyl.listener.FileListener;
-import live.karyl.task.FileWatcher;
+import live.karyl.config.ConfigManager;
+import live.karyl.data.PostgreSQL;
+import live.karyl.discord.Webhooks;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+import java.io.File;
+import java.io.InputStream;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
+@SpringBootApplication
 public class DiscordFlows {
-	public static void main(String[] args) throws Exception {
-		System.out.println("Hello World!");
-		new FileWatcher(Path.of("C:\\Users\\caoth\\Desktop\\t"), new FileListener());
 
+	private static ConfigManager config;
+	private static PostgreSQL postgreSQL;
+	private static Webhooks webhook;
+
+	public static void main(String[] args) {
+
+		config = new ConfigManager();
+		config.init();
+
+		postgreSQL = new PostgreSQL();
+		postgreSQL.init();
+
+		webhook = new Webhooks();
+		webhook.init();
+
+		SpringApplication.run(DiscordFlows.class, args);
+	}
+
+	public static ConfigManager getConfig() {
+		return config;
+	}
+
+	public static PostgreSQL getPostgreSQL() {
+		return postgreSQL;
+	}
+
+	public static Webhooks getWebhook() {
+		return webhook;
+	}
+
+	public static File getDataFolder() {
+		Path path = Paths.get(System.getProperty("user.dir"), "config");
+		File file = path.toFile();
+		if (!file.exists()) file.mkdirs();
+		return file;
+	}
+
+	public static InputStream getResourceAsStream(String name) {
+		return DiscordFlows.class.getClassLoader().getResourceAsStream(name);
 	}
 }

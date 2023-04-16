@@ -1,0 +1,60 @@
+type Query {
+    animeSearch(id: ID): Result
+    source(providerId: String, value: String): AnimeSource
+}
+
+type Result {
+    totalResults: Int # Number of results
+    success: Boolean # Success
+    animes: [Anime]
+}
+
+type Anime {
+    animeId: ID # Anime ID
+    providerId: ID # Provider ID
+    providerName: String # Provider name
+    episodes: [Episode]
+}
+
+type Episode {
+    episodeLabel: String # Episode label
+    episodeNumber: Int # Episode number
+    value: String # Episode name
+}
+
+type AnimeSource {
+    providerId: ID # Provider ID
+    subtitleType: String # Subtitle type
+    audioType: String # Audio type
+    headers: [Header] # Headers
+    videoResources: [VideoResource]
+    audioResources: [AudioResource]
+    subtitles: [Subtitle]
+}
+
+type Header {
+    key: String # Header key
+    value: [String] # Header value
+}
+
+type VideoResource {
+    url: String # Link to the video
+    backupUrl: String # Backup link to the video
+    quality: String # Quality of the video
+    serverId: ID # Server ID
+    audioQuality: String # Audio quality
+    videoType: String # Video type
+    useHeader: Boolean # Use headers
+}
+
+type AudioResource {
+    url: String # Link to the audio
+    backupUrl: String # Backup link to the audio
+    quality: String # Quality of the audio
+}
+
+type Subtitle {
+    language: String # Language of the subtitle
+    ass: String
+    srt: String
+}
