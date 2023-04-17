@@ -24,6 +24,7 @@ public class ConfigManager {
 
 	private List<String> webhookUrl;
 
+	private String secretKey;
 
 	public static ConfigManager getInstance() {
 		return instance;
@@ -61,6 +62,8 @@ public class ConfigManager {
 
 		webhookUrl = yaml.getStringList("webhookUrl");
 
+		secretKey = yaml.getString("secretKey");
+
 		instance = this;
 	}
 
@@ -89,4 +92,6 @@ public class ConfigManager {
 	public String getTempDir() { return tempDir; }
 
 	public List<String> getWebhookUrls() { return webhookUrl; }
+
+	public String getSecretKey() { return secretKey; }
 }

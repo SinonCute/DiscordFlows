@@ -42,8 +42,11 @@ function uploadSingleFile(file) {
             singleFileUploadSuccess.style.display = "block";
             progressBar.style.width = '100%';
 
-            singleUploadForm.reset();
+            singleUploadForm.reset()
+            progressContainer.style.display = "none"
+            singleFileUploadSuccess.style.display = "none";
             updateFileList();
+            createProgressBar(xhr.responseText);
         } else {
             singleFileUploadSuccess.style.display = "none";
             singleFileUploadError.innerHTML = "Some Error Occurred";
@@ -63,8 +66,55 @@ singleUploadForm.addEventListener('submit', function (event) {
     event.preventDefault();
 }, true);
 
-// Fetch the list of uploaded files from the server
 
+function checkFileStatus(fileId) {
+    fetch(`/api/fileStatus?id=${fileId}`)
+        .then(response => response.json())
+        .then(data => {
+            const fileRow = document.querySelector(`#file-${fileId}`);
+            const progressContainer = fileRow.querySelector('.progress-bar-container');
+            const progressBar = fileRow.querySelector('.progress-bar');
+            const progressText = fileRow.querySelector('.progress-text');
+
+            progressContainer.style.display = "block";
+
+            let percentComplete;
+
+            if (typeof data.currentPart === 'number' && typeof data.totalParts === 'number' && data.totalParts > 0) {
+                percentComplete = (data.currentPart / data.totalParts) * 100;
+            } else {
+                percentComplete = 0;
+            }
+
+            if (percentComplete === 100) {
+                progressContainer.style.backgroundColor = '#11c737';
+                progressBar.style.backgroundColor = '#11c737';
+                progressBar.style.width = '100%';
+                progressText.innerText = '100%';
+
+
+                setTimeout(() => {
+                    updateFileList();
+                    progressContainer.style.display = "none";
+                    fileRow.remove();
+                }, 2000);
+            } else {
+                progressContainer.style.backgroundColor = "gray";
+                progressBar.style.backgroundColor = '#11c737';
+                progressBar.style.width = `${percentComplete}%`;
+                progressText.innerText = `Processing: ${percentComplete}%`;
+
+                // Call the function again after a few seconds
+                setTimeout(() => checkFileStatus(fileId), 5000);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching file status:', error);
+        },);
+}
+
+
+// Fetch the list of uploaded files from the server
 function updateFileList() {
     fetch('/api/uploadedFiles')
         .then(response => response.json())
@@ -97,6 +147,36 @@ function updateFileList() {
         .catch(error => {
             console.error('Error fetching file list:', error);
         });
+}
+
+function createProgressBar(fileId) {
+    const fileContainer = document.querySelector('.file-container');
+
+    // Create a new progress bar element
+    const fileRow = document.createElement('div');
+    fileRow.id = `file-${fileId}`;
+    fileRow.className = 'file-row';
+
+    const progressContainer = document.createElement('div');
+    progressContainer.className = 'progress-bar-container';
+
+    const progressBar = document.createElement('div');
+    progressBar.className = 'progress-bar';
+
+    const progressText = document.createElement('div');
+    progressText.className = 'progress-text';
+    progressText.innerText = '0%';
+
+    progressContainer.appendChild(progressBar);
+    progressContainer.appendChild(progressText);
+
+    fileRow.appendChild(progressContainer);
+
+    // Add the progress bar element to the file container
+    fileContainer.appendChild(fileRow);
+
+    // Start checking the file status
+    checkFileStatus(fileId);
 }
 
 function formatBytes(bytes, decimals = 2) {

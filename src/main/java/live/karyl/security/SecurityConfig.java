@@ -22,11 +22,21 @@ public class SecurityConfig {
 				.requestMatchers("/login").permitAll()
 				.anyRequest().authenticated()
 				.and()
-				.formLogin((form) -> form
-						.loginPage("/login")
-						.loginProcessingUrl("/login")
-						.defaultSuccessUrl("/", true)
-						.permitAll()
+				.formLogin((form) -> {
+							try {
+								form
+										.loginPage("/login")
+										.loginProcessingUrl("/login")
+										.defaultSuccessUrl("/", true)
+										.permitAll()
+										.and()
+										.rememberMe()
+										.key("remember-me-key")
+										.tokenValiditySeconds(86400);
+							} catch (Exception e) {
+								throw new RuntimeException(e);
+							}
+						}
 				)
 				.logout().permitAll()
 				.and().csrf().disable();
@@ -36,8 +46,8 @@ public class SecurityConfig {
 	@Bean
 	public InMemoryUserDetailsManager userDetailsManager() {
 		UserDetails user = User.withDefaultPasswordEncoder()
-				.username("user")
-				.password("password")
+				.username("admin")
+				.password("@@admin@@")
 				.roles("USER")
 				.build();
 		return new InMemoryUserDetailsManager(user);
