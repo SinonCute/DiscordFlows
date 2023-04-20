@@ -4,8 +4,7 @@ import club.minnced.discord.webhook.WebhookClient;
 import club.minnced.discord.webhook.WebhookClientBuilder;
 import live.karyl.DiscordFlows;
 import live.karyl.config.ConfigManager;
-import live.karyl.models.Container;
-import live.karyl.models.FileContainer;
+import live.karyl.models.FileStorage;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
@@ -38,27 +37,20 @@ public class Webhooks {
 		return clients.get(new Random().nextInt(clients.size()));
 	}
 
-	public void sendStorageDiscord(Container container, FileContainer fileContainer) {
+	public void sendStorageDiscord(FileStorage container, File file) {
 		var client = getClient();
-		var file = fileContainer.getFile();
-		var partNumber = container.getCurrentPart() + "/" + container.getTotalPart();
-
-		System.out.println("Sending file " + partNumber + " to discord");
 
 		client.send(file).whenComplete((message, throwable) -> {
 			if (throwable != null) {
 				throwable.printStackTrace();
 			}
 			String url = message.getAttachments().get(0).getUrl();
-			fileContainer.setUrl(url);
-			DiscordFlows.getPostgreSQL().addStorageFile(fileContainer, partNumber);
-			if (container.getCurrentPart() == container.getTotalPart()) {
-				System.out.println("Deleting folder cache");
-				try {
-					FileUtils.deleteDirectory(container.getTempFolder());
-				} catch (IOException e) {
-					throw new RuntimeException(e);
-				}
+			container.setFileUrl(url);
+			DiscordFlows.getPostgreSQL().addFile(container);
+			try {
+				FileUtils.delete(file);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
 			}
 		});
 	}

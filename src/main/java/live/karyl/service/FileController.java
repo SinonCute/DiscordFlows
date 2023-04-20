@@ -1,102 +1,107 @@
 package live.karyl.service;
 
 
+import jakarta.servlet.http.HttpServletRequest;
 import live.karyl.DiscordFlows;
-import live.karyl.models.FileListResponse;
-import live.karyl.models.FileStatusResponse;
-import org.apache.tomcat.util.net.openssl.ciphers.Authentication;
+import live.karyl.data.PostgreSQL;
+import live.karyl.models.StorageResponse;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.*;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.io.IOException;
+import java.io.InputStream;
 
 
 @Controller
 @RestController
 @RequestMapping("/api")
-@PreAuthorize("hasRole('USER')")
 public class FileController {
 
 	@Autowired
-	private FileService fileService;
+	FileService fileService;
 
-	@PostMapping("/uploadFile")
-	public ResponseEntity<?> uploadFile(@RequestPart MultipartFile file, Authentication user) {
+	private final PostgreSQL postgreSQL = DiscordFlows.getPostgreSQL();
 
-		if (file.getOriginalFilename() == null) {
+	/*
+	 * Method: SIZE, CLEAR, FULL-SIZE, SAVE
+	 */
+	@PostMapping("storage/**")
+	public StorageResponse queryStorage(HttpServletRequest request, MultipartFile file) {
+		var fileId = request.getRequestURI().replace("/api/storage/", "");
+		var method = request.getHeader("x-method");
+		if (method == null || fileId == null) {
+			return new StorageResponse(true, "Missing header or file id", 0);
+		}
+		System.out.println("Method: " + method);
+		switch (method) {
+			case "SIZE" -> {
+				var fileSize = postgreSQL.getFile(fileId).getFileSize();
+				return new StorageResponse(false, "File size retrieved", fileSize);
+			}
+			case "FULL-SIZE" -> {
+				var listFile = postgreSQL.getAllFiles();
+				var totalSize = 0;
+				for (var fileStorage : listFile) {
+					totalSize += fileStorage.getFileSize();
+				}
+				return new StorageResponse(false, "Total size retrieved", totalSize);
+			}
+			case "CLEAR" -> {
+				postgreSQL.clear();
+				return new StorageResponse(false, "Storage cleared", 0);
+			}
+			case "SAVE" -> {
+				fileService.processFile(file, fileId);
+				return new StorageResponse(false, "File saved", 0);
+			}
+		}
+		return new StorageResponse(true, "Invalid method", 0);
+	}
+
+	/*
+	 * Method: DELETE
+	 */
+	@DeleteMapping("storage/**")
+	public StorageResponse deleteStorage(HttpServletRequest request) {
+		var fileId = request.getRequestURI().replace("/api/storage/", "");
+		if (fileId == null) {
+			return new StorageResponse(true, "Missing file id", 0);
+		}
+		postgreSQL.deleteFile(fileId);
+		return new StorageResponse(false, "File deleted", 0);
+	}
+
+	/*
+	 * Method: GET
+	 */
+	@GetMapping("storage/**")
+	public ResponseEntity<InputStreamResource> getStorage(HttpServletRequest request) {
+		var fileId = request.getRequestURI().replace("/api/storage/", "");
+		if (fileId == null) {
 			return ResponseEntity.badRequest().build();
 		}
-
-		String username = "anonymous";
-		if (user != null) {
-			username = user.name();
+		var file = postgreSQL.getFile(fileId);
+		OkHttpClient client = new OkHttpClient();
+		Request requestFile = new Request.Builder()
+				.url(file.getFileUrl())
+				.build();
+		try {
+			var response = client.newCall(requestFile).execute();
+			InputStream is = response.body().byteStream();
+			InputStreamResource inputStreamResource = new InputStreamResource(is);
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentLength(file.getFileSize());
+			headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+			return new ResponseEntity<>(inputStreamResource, headers, HttpStatus.OK);
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
-
-		var uuid = fileService.processFile(file, username);
-
-		return ResponseEntity.ok(uuid);
-	}
-
-	@PostMapping("/update")
-	public ResponseEntity<?> updateFile(@RequestParam String id, @RequestParam String name) throws IOException {
-
-		//TODO: update file name in database
-
 		return ResponseEntity.ok().build();
-	}
-
-	@Async
-	@GetMapping("/download")
-	public CompletableFuture<ResponseEntity<InputStreamResource>> downloadFile(@RequestParam String id) throws IOException {
-		var container = DiscordFlows.getPostgreSQL().getFile(id);
-		var fileContainer = DiscordFlows.getPostgreSQL().getFiles(id);
-
-		InputStream inputStream = fileService.combineStreams(fileContainer);
-		InputStreamResource inputStreamResource = new InputStreamResource(inputStream);
-		HttpHeaders headers = new HttpHeaders();
-		headers.setContentLength(container.getFileSize());
-		headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-		headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + container.getFileName() + "\"");
-		return CompletableFuture.completedFuture(new ResponseEntity<>(inputStreamResource, headers, HttpStatus.OK));
-	}
-
-	@PostMapping("/delete")
-	public ResponseEntity<?> deleteFile(@RequestPart String id) {
-
-		//TODO: delete file from database and discord
-
-		return ResponseEntity.ok().build();
-	}
-
-	@GetMapping("/uploadedFiles")
-	public FileListResponse[] getUploadedFiles() {
-		var containers = DiscordFlows.getPostgreSQL().getAllFiles();
-		containers.sort((file, file2) -> Long.compare(file2.getCreatedAt(), file.getCreatedAt()));
-
-		List<FileListResponse> files = new ArrayList<>();
-		for (var container : containers) {
-			var fileId = container.getUuid();
-			var fileName = container.getFileName();
-			var fileSize = container.getFileSize();
-			var downloadUrl = "/api/download?id=" + fileId;
-			var file = new FileListResponse(fileName, downloadUrl, fileSize);
-			files.add(file);
-		}
-		return files.toArray(new FileListResponse[0]);
-	}
-
-	@GetMapping("/fileStatus")
-	public FileStatusResponse getFileStatus(@RequestParam String id) {
-		var container = fileService.getContainer(id);
-		return new FileStatusResponse(container.getFileName(), container.getCurrentPart(), container.getTotalPart());
 	}
 }

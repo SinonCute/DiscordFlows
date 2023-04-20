@@ -51,6 +51,12 @@ public class DiscordFlows {
 		return file;
 	}
 
+	public static File getCacheFolder() {
+		File cacheFolder = new File("cache");
+		if (!cacheFolder.exists()) cacheFolder.mkdirs();
+		return cacheFolder;
+	}
+
 	public static InputStream getResourceAsStream(String name) {
 		return DiscordFlows.class.getClassLoader().getResourceAsStream(name);
 	}

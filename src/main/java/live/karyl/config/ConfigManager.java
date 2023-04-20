@@ -11,8 +11,6 @@ import java.util.List;
 
 public class ConfigManager {
 
-	private static ConfigManager instance;
-
 	private String databaseHost;
 	private String databasePort;
 	private String databaseName;
@@ -25,10 +23,6 @@ public class ConfigManager {
 	private List<String> webhookUrl;
 
 	private String secretKey;
-
-	public static ConfigManager getInstance() {
-		return instance;
-	}
 
 	public void saveDefaultConfig() {
 		if (!DiscordFlows.getDataFolder().exists()) {
@@ -63,8 +57,6 @@ public class ConfigManager {
 		webhookUrl = yaml.getStringList("webhookUrl");
 
 		secretKey = yaml.getString("secretKey");
-
-		instance = this;
 	}
 
 	public String getDatabaseHost() {

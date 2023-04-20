@@ -1,27 +1,27 @@
 package live.karyl.task;
 
 import live.karyl.DiscordFlows;
-import live.karyl.data.PostgreSQL;
-import live.karyl.models.Container;
+import live.karyl.models.FileStorage;
+
+import java.io.File;
 
 public class UploadFile implements Runnable {
 
-	private final Container container;
-	private final PostgreSQL postgreSQL = DiscordFlows.getPostgreSQL();
+	private final FileStorage container;
+	private final File cacheFolder = DiscordFlows.getCacheFolder();
 
-	public UploadFile(Container container) {
-		this.container = container;
+	public UploadFile(FileStorage fileStorage) {
+		this.container = fileStorage;
 		run();
 	}
 
 	@Override
 	public void run() {
-		int partNumber = 1;
-		for (var file : container.getChunks()) {
-			System.out.println("Uploading part " + partNumber + " of " + container.getChunks().size());
-			container.setCurrentPart(partNumber);
+		if (!cacheFolder.exists()) return;
+		for (var file : cacheFolder.listFiles()) {
+			if (!file.getName().equals(container.getUuid())) continue;
+			System.out.println("Uploading" + file.getName() + " to Discord");
 			DiscordFlows.getWebhook().sendStorageDiscord(container, file);
-			partNumber++;
 		}
 	}
 }
